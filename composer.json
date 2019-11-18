@@ -16,7 +16,8 @@
         "react/child-process": "~0.6.1",
         "react/http": "~0.8.5",
         "nikic/fast-route": "~1.3.0",
-        "thruway/middleware": "~0.0.2"
+        "thruway/middleware": "~0.0.2",
+        "lajosbencz/cli-args": "~0.1.0"
     },
     "autoload": {
         "psr-4": {

@@ -1,11 +1,10 @@
 <?php
 
-use Phrocman\CliArgs;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
 array_shift($argv);
-$args = new CliArgs($argv);
+$args = new LajosBencz\CliArgs($argv);
 
 if($args->hasFlag('help')) {
     die("Flags:

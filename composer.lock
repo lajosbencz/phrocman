@@ -1,10 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9c46db6c0bf73e33b5768994ebb757a9",
+    "content-hash": "64901464f9b72f6c90d5004c2efec8dc",
     "packages": [
         {
             "name": "cboden/ratchet",
@@ -172,6 +172,39 @@
                 "url"
             ],
             "time": "2019-07-01T23:21:34+00:00"
+        },
+        {
+            "name": "lajosbencz/cli-args",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lajosbencz/php-cli-args.git",
+                "reference": "d92116dcf4d579ef19b650dc09afb61b1b274043"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lajosbencz/php-cli-args/zipball/d92116dcf4d579ef19b650dc09afb61b1b274043",
+                "reference": "d92116dcf4d579ef19b650dc09afb61b1b274043",
+                "shasum": ""
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "LajosBencz\\": "src/LajosBencz"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Lajos Bencz",
+                    "email": "lazos@lazos.me"
+                }
+            ],
+            "description": "PHP console arguments parser",
+            "time": "2019-11-18T01:49:14+00:00"
         },
         {
             "name": "nikic/fast-route",
