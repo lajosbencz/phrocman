@@ -1,0 +1,26 @@
+{
+    "name": "lajosbencz/phrocman",
+    "description": "Process and timed event manager",
+    "type": "project",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Lajos Bencz",
+            "email": "lazos@lazos.me"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.2",
+        "ext-json": "*",
+        "react/child-process": "~0.6.1",
+        "react/http": "~0.8.5",
+        "nikic/fast-route": "~1.3.0",
+        "thruway/middleware": "~0.0.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phrocman\\": "src/Phrocman"
+        }
+    }
+}

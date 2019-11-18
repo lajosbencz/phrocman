@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>phrocman</title>
+</head>
+<body>
+<pre id="output"></pre>
+<script>
+  var pre = document.getElementById('output');
+  var req = new XMLHttpRequest();
+  req.open('GET', 'http://localhost:8080/stdout/583', true);
+  req.onreadystatechange = function() {
+    pre.innerHTML = this.responseText;
+  };
+  req.send(null);
+</script>
+</body>
+</html>
