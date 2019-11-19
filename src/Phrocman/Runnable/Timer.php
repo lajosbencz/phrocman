@@ -10,9 +10,9 @@ class Timer extends Runnable
 {
     protected $cron;
 
-    public function __construct(Cron $cron, string $cmd, ?string $cwd = null, ?array $env = null)
+    public function __construct(string $tag, Cron $cron, string $cmd, ?string $cwd = null, ?array $env = null)
     {
-        parent::__construct($cmd, $cwd, $env);
+        parent::__construct($tag, $cmd, $cwd, $env);
         $this->cron = $cron;
     }
 

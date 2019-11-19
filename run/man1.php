@@ -6,9 +6,9 @@ $exec = 'php '.dirname(__DIR__).'/test/payload.php';
 
 $man = new \Phrocman\Manager;
 $httpServer = new \Phrocman\Http\Server($man, '0.0.0.0:8080');
-$man->addService($exec.' --c 3 --r -1 --f 1 foo', 2);
-$man->addService($exec.' -e --c 256 --r -1 --f 2 BAR!', 3);
-$man->addTimer(new \Phrocman\Cron('*', '*', '*', '*', '*', '1/10'), $exec.' --f 0 timed!');
+$man->addService('foo is successful',$exec.' --c 3 --r -1 --f 1 foo', 2);
+$man->addService('bar process failing',$exec.' -e --c 256 --r -1 --f 2 BAR!', 3);
+//$man->addTimer('infinite eleven', new \Phrocman\Cron('*', '*', '*', '*', '*', '1/10'), $exec.' --f 0 timed!');
 
 $man->on('tick', function(DateTime $dateTime) {
     //echo 'tick ', $dateTime->format('Y-m-d H:i:s'), PHP_EOL;

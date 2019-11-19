@@ -3,19 +3,29 @@
 namespace Phrocman;
 
 
-class Runnable
+abstract class Runnable
 {
+    protected $uid = '';
     protected $cmd = '';
     protected $cwd = '';
     protected $env = [];
+    protected $tag = null;
 
-    public $tag = null;
-
-    public function __construct(string $cmd, ?string $cwd=null, ?array $env=null)
+    public function __construct(string $tag, string $cmd, ?string $cwd=null, ?array $env=null)
     {
+        $this->uid = uniqid();
+        $this->tag = $tag ? : null;
         $this->cmd = $cmd;
         $this->cwd = $cwd;
         $this->env = $env;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUid(): string
+    {
+        return $this->uid;
     }
 
     /**
