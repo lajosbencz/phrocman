@@ -3,34 +3,87 @@
 namespace Phrocman\Runnable;
 
 
+use Phrocman\Descriptor;
 use Phrocman\Runnable;
+use React\ChildProcess\Process;
+use React\EventLoop\LoopInterface;
 
 class Service extends Runnable
 {
-    protected $cnt = 1;
+    /** @var Process */
+    protected $process;
 
-    public function __construct(string $tag, string $cmd, int $cnt=1, ?string $cwd=null, ?array $env=null)
+    protected function createProcess()
     {
-        parent::__construct($tag, $cmd, $cwd, $env);
-        $this->cnt = $cnt;
+        $descriptor = $this->getDescriptor();
+        $process = $this->process;
+        if($process && $process->isRunning()) {
+            $process->terminate(SIGKILL);
+            $process->close();
+        }
+        $this->process = new Process($descriptor->getCmd(), $descriptor->getCwd(), $descriptor->getEnv());
+    }
+
+    public function __construct(Descriptor\Service $descriptor, int $instance, LoopInterface $loop)
+    {
+        parent::__construct($descriptor, $instance, $loop);
+        $this->createProcess();
     }
 
     /**
-     * @return int
+     * @return Descriptor\Service
      */
-    public function getCnt(): int
+    public function getDescriptor(): Descriptor
     {
-        return $this->cnt;
+        return parent::getDescriptor();
     }
 
-    /**
-     * @param int $cnt
-     * @return $this
-     */
-    public function setCnt(int $cnt): self
+    public function getProcess(): Process
     {
-        $this->cnt = $cnt;
-        return $this;
+        return $this->process;
     }
 
+    public function isRunning(): bool
+    {
+        return $this->process->isRunning();
+    }
+
+    public function start(): void
+    {
+        $this->process->start($this->loop);
+
+        $this->process->stdout->on('data', function ($data) {
+            $this->emit('stdout', func_get_args());
+        });
+
+        $this->process->stderr->on('data', function ($error) {
+            $this->emit('stderr', func_get_args());
+        });
+
+        $this->process->on('exit', function ($code) {
+            if(!$this->getDescriptor()->isValidExitCode($code)) {
+                $this->emit('fail', func_get_args());
+                $this->createProcess();
+                $this->start();
+            } else {
+                $this->emit('exit', func_get_args());
+            }
+        });
+    }
+
+    public function stop(): void
+    {
+        foreach ($this->process->pipes as $pipe) {
+            $pipe->close();
+        }
+        $this->process->terminate();
+    }
+
+    public function restart(): void
+    {
+        if($this->isRunning()) {
+            $this->stop();
+        }
+        $this->start();
+    }
 }

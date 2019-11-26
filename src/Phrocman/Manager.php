@@ -11,15 +11,8 @@ use React\ChildProcess\Process;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
 
-class Manager
+class Manager extends Group
 {
-    use EventEmitterTrait;
-
-    const ENV_PHROCMAN_INSTANCE = 'PHROCMAN_INSTANCE';
-
-    /** @var int */
-    public $restartTimeout = 3;
-
     /** @var LoopInterface */
     protected $loop;
 
@@ -28,9 +21,6 @@ class Manager
 
     /** @var Runnable\Service[] */
     protected $serviceDescriptors = [];
-
-    /** @var array */
-    protected $services = [];
 
     protected function findServiceIndex(string $uid): int
     {
@@ -75,9 +65,10 @@ class Manager
         }
     }
 
-    public function __construct()
+    public function __construct(string $name)
     {
         $this->loop = Factory::create();
+        parent::__construct($name);
     }
 
     public function run()

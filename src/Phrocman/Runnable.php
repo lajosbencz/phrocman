@@ -3,64 +3,48 @@
 namespace Phrocman;
 
 
-abstract class Runnable
+use Evenement\EventEmitterTrait;
+use React\EventLoop\LoopInterface;
+
+abstract class Runnable implements RunnableInterface, UidInterface
 {
-    protected $uid = '';
-    protected $cmd = '';
-    protected $cwd = '';
-    protected $env = [];
-    protected $tag = null;
+    use UidTrait, EventEmitterTrait;
 
-    public function __construct(string $tag, string $cmd, ?string $cwd=null, ?array $env=null)
+    /** @var LoopInterface */
+    protected $loop;
+
+    /** @var Descriptor */
+    protected $descriptor;
+
+    /** @var int */
+    protected $instance;
+
+    public function __construct(Descriptor $descriptor, int $instance, LoopInterface $loop)
     {
-        $this->uid = uniqid();
-        $this->tag = $tag ? : null;
-        $this->cmd = $cmd;
-        $this->cwd = $cwd;
-        $this->env = $env;
+        $this->descriptor = $descriptor;
+        $this->instance = $instance;
+        $this->loop = $loop;
+        $this->generateUid();
     }
 
-    /**
-     * @return string
-     */
-    public function getUid(): string
+    public function getLoop(): LoopInterface
     {
-        return $this->uid;
+        return $this->loop;
     }
 
-    /**
-     * @return string
-     */
-    public function getTag(): string
+    public function getDescriptor(): Descriptor
     {
-        return $this->tag ?? $this->cmd;
+        return $this->descriptor;
     }
 
-    /**
-     * @return string
-     */
-    public function getCmd(): string
+    public function setInstance(int $instance): self
     {
-        return $this->cmd;
+        $this->instance = $instance;
+        return $this;
     }
 
-    /**
-     * @return string|null
-     */
-    public function getCwd(): ?string
+    public function getInstance(): int
     {
-        return $this->cwd;
-    }
-
-    /**
-     * @param array|null $override
-     * @return array|null
-     */
-    public function getEnv(?array $override=null): ?array
-    {
-        if(is_array($override)) {
-            return array_merge($this->env ?? [], $override ?? []);
-        }
-        return $this->env;
+        return $this->instance;
     }
 }
