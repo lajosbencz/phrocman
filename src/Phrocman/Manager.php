@@ -22,11 +22,8 @@ class Manager extends Group
 
     public function tickSecond(DateTime $dateTime): void
     {
-        //echo 'tick second ', $dateTime->format('H:i:s.u'), PHP_EOL;
         $this->emit('tick', [$dateTime]);
-        foreach($this->getTimers() as $timer) {
-            $timer->tickSecond($dateTime);
-        }
+        parent::tickSecond($dateTime);
     }
 
     public function start(): void

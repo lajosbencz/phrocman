@@ -8,6 +8,9 @@ $exec = 'php '.$cwd.'/payload.php';
 
 
 $manager = new \Phrocman\Manager('Travelhood');
+$manager->on('tick', function(\DateTime $dateTime) {
+    //echo 'tick second ', $dateTime->format('H:i:s.u'), PHP_EOL;
+});
 $manager->on('stdout', function($data) {
     echo $data;
 });
@@ -22,8 +25,8 @@ $wsTourJoin = $gWsTour->addService('join', $exec.' --r -1 --f 5 tour join', $cwd
 $wsTourComment = $gWsTour->addService('comment', $exec.' --r -1 --f 10 tour comment', $cwd);
 
 $gTmax = new \Phrocman\Group('Travelmax', $manager);
-$gTmax->addTimer('daily', new \Phrocman\Cron('*', '*', '*', '6,7,8', 0, 0), $exec.' timer tmax daily');
-$gTmax->addTimer('second', new \Phrocman\Cron('*', '*', '*', '*', '*', '*'), $exec.' timer tmax second');
+$gTmax->addTimer('daily', new \Phrocman\Cron('*', '*', '*', '6,7,8', '0', '0'), $exec.' timer tmax daily');
+$gTmax->addTimer('second', new \Phrocman\Cron('*', '*', '*', '*', '*', '1/5'), $exec.' timer tmax second');
 
 //echo json_encode($manager->toArray(), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE), PHP_EOL;
 
