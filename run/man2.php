@@ -8,6 +8,7 @@ $exec = 'php '.$cwd.'/payload.php';
 
 
 $manager = new \Phrocman\Manager('Travelhood');
+$server = new \Phrocman\Http\Server($manager, '0.0.0.0:8080');
 $manager->on('tick', function(\DateTime $dateTime) {
     //echo 'tick second ', $dateTime->format('H:i:s.u'), PHP_EOL;
 });

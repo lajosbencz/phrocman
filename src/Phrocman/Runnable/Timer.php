@@ -73,7 +73,7 @@ class Timer extends Runnable
     public function toArray(): array
     {
         return [
-            'timer' => $this->getUid(),
+            'uid' => $this->getUid(),
             'name' => $this->getName(),
             'cron' => $this->getCron()->toArray(),
             'cmd' => $this->getCmd(),

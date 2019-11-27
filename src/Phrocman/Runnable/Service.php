@@ -62,6 +62,16 @@ class Service extends Runnable
         }
     }
 
+    /**
+     * @return \Generator|ServiceInstance[]
+     */
+    public function getInstances(): \Generator
+    {
+        foreach($this->instances as $instance) {
+            yield $instance;
+        }
+    }
+
     public function getInstanceCount(): int
     {
         return $this->instanceCount;
@@ -126,9 +136,9 @@ class Service extends Runnable
             $instances[] = $instance->toArray();
         }
         return [
+            'uid' => $this->getUid(),
             'name' => $this->getName(),
             'cmd' => $this->getCmd(),
-            'service' => $this->getUid(),
             'running' => $this->isRunning(),
             'keepAlive' => $this->isKeepAlive(),
             'validExitCodes' => $this->validExitCodes,

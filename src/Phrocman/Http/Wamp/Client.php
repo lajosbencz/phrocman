@@ -3,6 +3,7 @@
 namespace Phrocman\Http\Wamp;
 
 
+use Phrocman\Exception;
 use Phrocman\Manager;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\Timer;
@@ -28,17 +29,12 @@ class Client extends ThruwayClient
 
             foreach([
                 'index',
-                'services',
-                'serviceCreate',
-                'serviceDelete',
-                'serviceEdit',
-                'serviceStatus',
-                'serviceStart',
-                'serviceStop',
-                'serviceRestart',
-                'serviceInstanceStart',
-                'serviceInstanceStop',
-                'serviceInstanceRestart',
+                'groupInfo',
+                'groupStart',
+                'groupStop',
+                'groupRestart',
+                'serviceInfo',
+                'timerInfo',
                         ] as $method) {
                 $session->register($method, function($args, $kvArgs, $details) use($method) {
                     $deferred = new Deferred();
@@ -59,170 +55,70 @@ class Client extends ThruwayClient
                 });
             }
 
-            $manager->on('service.start', function ($uid, $instance=null, $pid=null) use($session) {
-                $session->publish('service.start', [], ['uid'=>$uid, 'instance'=>$instance, 'pid'=>$pid]);
-            });
-            $manager->on('service.stop', function ($uid, $instance=null, $pid=null) use($session) {
-                $session->publish('service.stop', [], ['uid'=>$uid, 'instance'=>$instance, 'pid'=>$pid]);
-            });
-            $manager->on('service.fail', function ($uid, $instance) use($session) {
-                $session->publish('service.fail', [], ['uid'=>$uid, 'instance'=>$instance]);
-            });
+//            $manager->on('service.start', function ($uid, $instance=null, $pid=null) use($session) {
+//                $session->publish('service.start', [], ['uid'=>$uid, 'instance'=>$instance, 'pid'=>$pid]);
+//            });
+//            $manager->on('service.stop', function ($uid, $instance=null, $pid=null) use($session) {
+//                $session->publish('service.stop', [], ['uid'=>$uid, 'instance'=>$instance, 'pid'=>$pid]);
+//            });
+//            $manager->on('service.fail', function ($uid, $instance) use($session) {
+//                $session->publish('service.fail', [], ['uid'=>$uid, 'instance'=>$instance]);
+//            });
 
         });
     }
 
     public function index($args, $kvArgs, $details, Deferred $deferred)
     {
-        $services = [];
-        $timers = [];
-        $processes = [];
+        return [$this->manager->toArray()];
+    }
 
-        try {
-            foreach ($this->manager->getServices() as $index => $service) {
-                $serviceDescriptor = $this->manager->getServiceDescriptors()[$index];
-                $instances = [];
-                foreach ($service as $instance => $process) {
-                    if($process) {
-                        $instances[] = $process->getPid();
-                    } else {
-                        $instances[] = false;
-                    }
-                }
-                $services[] = [
-                    'uid' => $serviceDescriptor->getUid(),
-                    'tag' => $serviceDescriptor->getTag(),
-                    'cmd' => $serviceDescriptor->getCmd(),
-                    'cwd' => $serviceDescriptor->getCwd(),
-                    'processes' => $instances,
-                ];
-            }
-        } catch (\Throwable $e) {
-            echo $e->getMessage(), PHP_EOL;
-            echo $e->getFile(), '#', $e->getLine(), PHP_EOL;
+    public function groupInfo($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($group = $this->manager->findGroup($kvArgs->uid)) {
+            return [$group->toArray()];
         }
+        throw new Exception('invalid group: '.$kvArgs->uid);
+    }
 
-        foreach ($this->manager->getTimerDescriptors() as $timerDescriptor) {
-            $timers[] = [
-                'uid' => $timerDescriptor->getUid(),
-                'tag' => $timerDescriptor->getTag(),
-                'cron' => $timerDescriptor->getCron()->__toString(),
-                'cmd' => $timerDescriptor->getCmd(),
-                'cwd' => $timerDescriptor->getCwd(),
-            ];
+    public function groupStart($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($group = $this->manager->findGroup($kvArgs->uid)) {
+            $group->start();
         }
+        return [true];
+    }
 
-        foreach ($this->manager->getProcesses() as $process) {
-            $pid = false;
-            if ($process['process']) {
-                $pid = $process['process']->getPid();
-            }
-            $processes[] = [
-                'uid' => $process['uid'],
-                'instance' => $process['instance'],
-                'pid' => $pid,
-            ];
+    public function groupStop($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($group = $this->manager->findGroup($kvArgs->uid)) {
+            $group->stop();
         }
-
-        return [
-            'error' => false,
-            'payload' => [
-                'timers' => $timers,
-                'services' => $services,
-                'processes' => $processes,
-            ],
-        ];
+        return [true];
     }
 
-
-    public function services($args, $kvArgs, $details, Deferred $deferred)
+    public function groupRestart($args, $kvArgs, $details, Deferred $deferred)
     {
-        $list = [];
-        foreach ($this->manager->getServices() as $si => $prcs) {
-            $serviceDescriptor = $this->manager->getServiceDescriptors()[$si];
-            $instances = [];
-            foreach ($prcs as $instance => $process) {
-                $instances[] = $process->getPid();
-            }
-            $list[] = [
-                'uid' => $serviceDescriptor->getUid(),
-                'tag' => $serviceDescriptor->getTag(),
-                'cmd' => $serviceDescriptor->getCmd(),
-                'cwd' => $serviceDescriptor->getCwd(),
-                'instances' => $instances,
-            ];
+        if($group = $this->manager->findGroup($kvArgs->uid)) {
+            $group->restart();
         }
-        return $list;
+        return [true];
     }
 
-    public function serviceCreate($args, $kvArgs, $details, Deferred $deferred)
+    public function serviceInfo($args, $kvArgs, $details, Deferred $deferred)
     {
-    }
-
-    public function serviceDelete($args, $kvArgs, $details, Deferred $deferred)
-    {
-    }
-
-    public function serviceEdit($args, $kvArgs, $details, Deferred $deferred)
-    {
-    }
-
-    public function serviceStatus($args, $kvArgs, $details, Deferred $deferred)
-    {
-        $r = [];
-        $service = $this->manager->getService($kvArgs->uid);
-        if ($service) {
-            foreach ($service as $instance => $process) {
-                $pid = false;
-                if ($process) {
-                    $pid = $process->getPid();
-                }
-                $r[$instance] = $pid;
-            }
+        if($service = $this->manager->findService($kvArgs->uid)) {
+            return [$service->toArray()];
         }
-        return $r;
+        throw new Exception('invalid service: '.$kvArgs->uid);
     }
 
-    public function serviceStart($args, $kvArgs, $details, Deferred $deferred)
+    public function timerInfo($args, $kvArgs, $details, Deferred $deferred)
     {
-        $this->manager->startService($kvArgs->uid);
-        return true;
-    }
-
-    public function serviceStop($args, $kvArgs, $details, Deferred $deferred)
-    {
-        $this->manager->stopService($kvArgs->uid);
-        return true;
-    }
-
-    public function serviceRestart($args, $kvArgs, $details, Deferred $deferred)
-    {
-        $this->manager->stopService($kvArgs->uid);
-        $this->manager->getLoop()->addTimer(3, function () use($kvArgs, $deferred) {
-            $this->manager->startService($kvArgs->uid);
-            $deferred->resolve([true]);
-        });
-        return $deferred;
-    }
-
-    public function serviceInstanceStart($args, $kvArgs, $details, Deferred $deferred)
-    {
-        return $this->manager->startServiceInstance($kvArgs->uid, $kvArgs->instance);
-    }
-
-    public function serviceInstanceStop($args, $kvArgs, $details, Deferred $deferred)
-    {
-        return $this->manager->stopServiceInstance($kvArgs->uid, $kvArgs->instance);
-    }
-
-    public function serviceInstanceRestart($args, $kvArgs, $details, Deferred $deferred)
-    {
-        $this->manager->stopServiceInstance($kvArgs->uid, $kvArgs->instance);
-        $this->manager->getLoop()->addTimer(3, function () use($kvArgs, $deferred) {
-            $this->manager->startServiceInstance($kvArgs->uid, $kvArgs->instance);
-            $deferred->resolve([true]);
-        });
-        return $deferred;
+        if($timer = $this->manager->findTimer($kvArgs->uid)) {
+            return [$timer->toArray()];
+        }
+        throw new Exception('invalid timer: '.$kvArgs->uid);
     }
 
 }

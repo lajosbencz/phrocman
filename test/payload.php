@@ -29,7 +29,7 @@ if($args->countArguments() > 0) {
 $i = 0;
 while($repeat < 0 || $i < $repeat) {
     usleep($freq * 1000 * 1000);
-    $now = DateTime::createFromFormat('U.u', microtime(true));
+    $now = DateTime::createFromFormat('U.u', sprintf('%0.6f', microtime(true)));
     $line = '[' . $now->format('Y-m-d H:i:s.u') . '] #' . ($i + 1) . ': ' . trim($message) . PHP_EOL;
     if($args->hasFlag('e')) {
         fwrite(STDERR, $line);

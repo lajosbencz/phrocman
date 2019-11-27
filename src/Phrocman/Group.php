@@ -230,6 +230,49 @@ class Group implements RunnableInterface, UidInterface
         return false;
     }
 
+    public function findGroup(string $uid): ?self
+    {
+        foreach($this->children as $child) {
+            if($child->getUid() === $uid) {
+                return $child;
+            }
+            if($f = $child->findGroup($uid)) {
+                return $f;
+            }
+        }
+        return null;
+    }
+
+    public function findService(string $uid): ?Runnable\Service
+    {
+        foreach($this->services as $service) {
+            if($service->getUid() === $uid) {
+                return $service;
+            }
+        }
+        foreach($this->children as $child) {
+            if($f = $child->findService($uid)) {
+                return $f;
+            }
+        }
+        return null;
+    }
+
+    public function findTimer(string $uid): ?Runnable\Timer
+    {
+        foreach($this->timers as $timer) {
+            if($timer->getUid() === $uid) {
+                return $timer;
+            }
+        }
+        foreach($this->children as $child) {
+            if($f = $child->findTimer($uid)) {
+                return $f;
+            }
+        }
+        return null;
+    }
+
     public function toArray(): array
     {
         $a = [

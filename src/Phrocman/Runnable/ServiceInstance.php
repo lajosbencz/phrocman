@@ -101,7 +101,7 @@ class ServiceInstance extends Runnable
     public function toArray(): array
     {
         return [
-            'instance' => $this->getUid(),
+            'uid' => $this->getUid(),
             'pid' => $this->getProcess()->getPid(),
             'running' => $this->isRunning(),
         ];

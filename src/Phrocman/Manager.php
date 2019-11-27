@@ -45,7 +45,6 @@ class Manager extends Group
     public function stop(): void
     {
         parent::stop();
-        $this->loop->stop();
     }
 
     /**

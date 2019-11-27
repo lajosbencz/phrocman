@@ -61,6 +61,10 @@ class Cron
 
     public function toArray()
     {
-        return (array)$this;
+        $r = [];
+        foreach(['weekdays', 'months', 'days', 'hours', 'minutes', 'seconds'] as $k) {
+            $r[$k] = $this->$k->getStringValue();
+        }
+        return $r;
     }
 }
