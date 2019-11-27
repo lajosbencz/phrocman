@@ -13,18 +13,19 @@ abstract class Runnable implements RunnableInterface, UidInterface
     /** @var LoopInterface */
     protected $loop;
 
-    /** @var Descriptor */
-    protected $descriptor;
+    protected $name = '';
+    protected $cmd = '';
+    protected $cwd = '';
+    protected $env = [];
 
-    /** @var int */
-    protected $instance;
-
-    public function __construct(Descriptor $descriptor, int $instance, LoopInterface $loop)
+    public function __construct(LoopInterface $loop, string $name, string $cmd, string $cwd='', array $env=[])
     {
-        $this->descriptor = $descriptor;
-        $this->instance = $instance;
-        $this->loop = $loop;
         $this->generateUid();
+        $this->loop = $loop;
+        $this->name = $name;
+        $this->cmd = $cmd;
+        $this->cwd = $cwd;
+        $this->env = $env;
     }
 
     public function getLoop(): LoopInterface
@@ -32,19 +33,30 @@ abstract class Runnable implements RunnableInterface, UidInterface
         return $this->loop;
     }
 
-    public function getDescriptor(): Descriptor
+    public function getName(): string
     {
-        return $this->descriptor;
+        return $this->name;
     }
 
-    public function setInstance(int $instance): self
+    public function getCmd(): string
     {
-        $this->instance = $instance;
-        return $this;
+        return $this->cmd;
     }
 
-    public function getInstance(): int
+    public function getCwd(): string
     {
-        return $this->instance;
+        return $this->cwd;
     }
+
+    public function getEnv(): array
+    {
+        return $this->env;
+    }
+
+    public function restart(): void
+    {
+        $this->stop();
+        $this->start();
+    }
+
 }

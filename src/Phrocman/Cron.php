@@ -58,4 +58,9 @@ class Cron
     {
         return "{$this->weekdays}\t{$this->months}\t{$this->days}\t{$this->hours}\t{$this->minutes}\t{$this->seconds}";
     }
+
+    public function toArray()
+    {
+        return (array)$this;
+    }
 }

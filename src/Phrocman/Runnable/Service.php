@@ -10,80 +10,131 @@ use React\EventLoop\LoopInterface;
 
 class Service extends Runnable
 {
-    /** @var Process */
-    protected $process;
+    /** @var int */
+    protected $instanceCount = 1;
 
-    protected function createProcess()
+    /** @var int[] */
+    protected $validExitCodes = [];
+
+    /** @var bool */
+    protected $keepAlive = true;
+
+    /** @var ServiceInstance[] */
+    protected $instances = [];
+
+    public function __construct(LoopInterface $loop, string $name, string $cmd, string $cwd = '', array $env = [], int $instanceCount = 1, bool $keepAlive=true, array $validExitCodes=[])
     {
-        $descriptor = $this->getDescriptor();
-        $process = $this->process;
-        if($process && $process->isRunning()) {
-            $process->terminate(SIGKILL);
-            $process->close();
+        parent::__construct($loop, $name, $cmd, $cwd, $env);
+        $this->keepAlive = $keepAlive;
+        $this->validExitCodes = $validExitCodes;
+        $this->setInstanceCount($instanceCount);
+    }
+
+    public function setInstanceCount(int $count)
+    {
+        $this->instanceCount = max(1, $count);
+        $c = count($this->instances);
+        $d = $count - $c;
+        if($d > 0) {
+            for($i=$c; $i<$count; $i++) {
+                $instance = new ServiceInstance($this, $i);
+                $instance->on('stdout', function() {
+                    $this->emit('stdout', func_get_args());
+                });
+                $instance->on('stderr', function() {
+                    $this->emit('stderr', func_get_args());
+                });
+                $instance->on('exit', function() {
+                    $this->emit('exit', func_get_args());
+                });
+                $instance->on('fail', function() {
+                    $this->emit('fail', func_get_args());
+                });
+                $this->instances[] = $instance;
+            }
+        } elseif($d < 0) {
+            do {
+                /** @var ServiceInstance $instance */
+                $instance = array_pop($this->instances);
+                $instance->stop();
+                $c--;
+            } while($c > 0 && $c > $count);
         }
-        $this->process = new Process($descriptor->getCmd(), $descriptor->getCwd(), $descriptor->getEnv());
     }
 
-    public function __construct(Descriptor\Service $descriptor, int $instance, LoopInterface $loop)
+    public function getInstanceCount(): int
     {
-        parent::__construct($descriptor, $instance, $loop);
-        $this->createProcess();
+        return $this->instanceCount;
     }
 
-    /**
-     * @return Descriptor\Service
-     */
-    public function getDescriptor(): Descriptor
+    public function setKeepAlive(bool $keepAlive=true)
     {
-        return parent::getDescriptor();
+        $this->keepAlive = $keepAlive;
     }
 
-    public function getProcess(): Process
+    public function isKeepAlive(): bool
     {
-        return $this->process;
+        return $this->keepAlive;
+    }
+
+    public function isValidExitCode(?int $code=null): bool
+    {
+        if($code === null) {
+            return false;
+        }
+        return in_array($code, $this->validExitCodes);
     }
 
     public function isRunning(): bool
     {
-        return $this->process->isRunning();
+        foreach($this->instances as $instance) {
+            if($instance->isRunning()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function start(): void
     {
-        $this->process->start($this->loop);
-
-        $this->process->stdout->on('data', function ($data) {
-            $this->emit('stdout', func_get_args());
-        });
-
-        $this->process->stderr->on('data', function ($error) {
-            $this->emit('stderr', func_get_args());
-        });
-
-        $this->process->on('exit', function ($code) {
-            if(!$this->getDescriptor()->isValidExitCode($code)) {
-                $this->emit('fail', func_get_args());
-                $this->createProcess();
-                $this->start();
-            } else {
-                $this->emit('exit', func_get_args());
-            }
-        });
+        foreach($this->instances as $instance) {
+            $instance->start();
+        }
     }
 
     public function stop(): void
     {
-        foreach ($this->process->pipes as $pipe) {
-            $pipe->close();
+        foreach($this->instances as $instance) {
+            $instance->stop();
         }
-        $this->process->terminate();
     }
 
     public function restart(): void
     {
-        if($this->isRunning()) {
-            $this->stop();
+        foreach($this->instances as $instance) {
+            $instance->stop();
         }
-        $this->start();
+        foreach($this->instances as $instance) {
+            $instance->start();
+        }
     }
+
+    public function toArray(): array
+    {
+        $instances = [];
+        foreach($this->instances as $instance) {
+            $instances[] = $instance->toArray();
+        }
+        return [
+            'name' => $this->getName(),
+            'cmd' => $this->getCmd(),
+            'service' => $this->getUid(),
+            'running' => $this->isRunning(),
+            'keepAlive' => $this->isKeepAlive(),
+            'validExitCodes' => $this->validExitCodes,
+            'instances' => $instances,
+        ];
+    }
+
+
 }

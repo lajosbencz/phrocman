@@ -10,6 +10,9 @@ class Group implements RunnableInterface, UidInterface
 {
     use EventEmitterTrait, UidTrait;
 
+    /** @var self|null */
+    protected $parent = null;
+
     /** @var string */
     protected $name;
 
@@ -34,9 +37,46 @@ class Group implements RunnableInterface, UidInterface
         }
     }
 
-    public function __construct(string $name)
+    protected function stdListeners(Runnable $item)
     {
+        $item->on('stdout', function($data) use($item) {
+            $this->emit('stdout', [$data, $item, $this]);
+        });
+        $item->on('stderr', function($data) use($item) {
+            $this->emit('stderr', [$data, $item, $this]);
+        });
+    }
+
+    protected function serviceListeners(Runnable $item)
+    {
+        $this->stdListeners($item);
+        $item->on('exit', function($code) use($item) {
+            $this->emit('fail', [$code, $item, $this]);
+        });
+        $item->on('fail', function($code) use($item) {
+            $this->emit('fail', [$code, $item, $this]);
+        });
+    }
+
+    protected function timerListeners(Runnable $item)
+    {
+        $this->stdListeners($item);
+        $item->on('trigger', function(?int $pid, float $startMicrotime) use($item) {
+            $this->emit('trigger', [$pid, $startMicrotime, $item, $this]);
+        });
+        $item->on('done', function($code) use($item) {
+            $this->emit('done', [$code, $item, $this]);
+        });
+    }
+
+    public function __construct(string $name, ?self $parent=null)
+    {
+        $this->generateUid();
         $this->name = $name;
+        if($parent) {
+            $this->setParent($parent);
+            $parent->addChild($this);
+        }
     }
 
     public function getName()
@@ -44,8 +84,30 @@ class Group implements RunnableInterface, UidInterface
         return $this->name;
     }
 
+    public function setParent(self $parent): void
+    {
+        $this->parent = $parent;
+    }
+
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    /**
+     * @return Manager
+     */
+    public function getManager(): self
+    {
+        if($this->parent) {
+            return $this->parent->getManager();
+        }
+        return $this;
+    }
+
     public function addChild(self $group, ?int $index=null): self
     {
+        $group->setParent($this);
         $this->add($this->children, $group, $index);
         $group->on('stdout', function($data, $item, $group) {
             $this->emit('stdout', [$data, $item, $group]);
@@ -62,49 +124,60 @@ class Group implements RunnableInterface, UidInterface
         return $this;
     }
 
-    public function getChildren(): array
+    /**
+     * @return \Generator|self[]
+     */
+    public function getChildren(): \Generator
     {
-        return $this->children;
+        foreach ($this->children as $child) {
+            yield $child;
+        }
     }
 
-    protected function setupListeners(Runnable $item)
+    public function addService(string $name, string $cmd, string $cwd = '', array $env = [], int $instanceCount = 1, bool $keepAlive=true, array $validExitCodes=[]): Service
     {
-        $item->on('stdout', function($data) use($item) {
-            $this->emit('stdout', [$data, $item, $this]);
-        });
-        $item->on('stderr', function($data) use($item) {
-            $this->emit('stderr', [$data, $item, $this]);
-        });
-        $item->on('exit', function($code) use($item) {
-            $this->emit('fail', [$code, $item, $this]);
-        });
-        $item->on('fail', function($code) use($item) {
-            $this->emit('fail', [$code, $item, $this]);
-        });
+        $item = new Service($this->getManager()->getLoop(), $name, $cmd, $cwd, $env, $instanceCount, $keepAlive, $validExitCodes);
+        $this->add($this->services, $item);
+        $this->serviceListeners($item);
+        return $item;
     }
 
-    public function addService(Service $item, ?int $index=null): self
+    /**
+     * @return \Generator|Runnable\Service[]
+     */
+    public function getServices(): \Generator
     {
-        $this->add($this->services, $item, $index);
-        $this->setupListeners($item);
-        return $this;
+        foreach($this->services as $service) {
+            yield $service;
+        }
     }
 
-    public function getServices(): array
+    public function addTimer(string $name, Cron $cron, string $cmd, string $cwd = '', array $env = []): Timer
     {
-        return $this->services;
+        $item = new Timer($this->getManager()->getLoop(), $name, $cron, $cmd, $cwd, $env);
+        $this->add($this->timers, $item);
+        $this->timerListeners($item);
+        return $item;
     }
 
-    public function addTimer(Timer $item, ?int $index=null): self
+    /**
+     * @return \Generator|Runnable\Timer[]
+     */
+    public function getTimers(): \Generator
     {
-        $this->add($this->timers, $item, $index);
-        $this->setupListeners($item);
-        return $this;
+        foreach($this->timers as $timer) {
+            yield $timer;
+        }
     }
 
-    public function getTimers(): array
+    public function tickSecond(\DateTime $dateTime): void
     {
-        return $this->timers;
+        foreach($this->children as $child) {
+            $child->tickSecond($dateTime);
+        }
+        foreach($this->timers as $timer) {
+            $timer->tickSecond($dateTime);
+        }
     }
 
     /**
@@ -112,7 +185,13 @@ class Group implements RunnableInterface, UidInterface
      */
     protected function iterate(): \Generator
     {
-        foreach(array_merge($this->services, $this->timers, $this->children) as $runnable) {
+        foreach($this->getServices() as $runnable) {
+            yield $runnable;
+        }
+        foreach($this->getTimers() as $runnable) {
+            yield $runnable;
+        }
+        foreach($this->getChildren() as $runnable) {
             yield $runnable;
         }
     }
@@ -134,16 +213,29 @@ class Group implements RunnableInterface, UidInterface
     public function restart(): void
     {
         foreach($this->iterate() as $runnable) {
-            $runnable->restart();
+            $runnable->stop();
+        }
+        foreach($this->iterate() as $runnable) {
+            $runnable->start();
         }
     }
 
+    public function isRunning(): bool
+    {
+        foreach($this->iterate() as $item) {
+            if($item->isRunning()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    public function toArray()
+    public function toArray(): array
     {
         $a = [
             'name' => $this->getName(),
             'uid' => $this->getUid(),
+            'running' => $this->isRunning(),
             'children' => [],
             'services' => [],
             'timers' => [],
@@ -152,10 +244,10 @@ class Group implements RunnableInterface, UidInterface
             $a['children'][] = $child->toArray();
         }
         foreacH($this->services as $service) {
-            $a['services'][] = $service->getDescriptor()->getUid();
+            $a['services'][] = $service->toArray();
         }
         foreacH($this->timers as $timer) {
-            $a['timers'][] = $timer->getDescriptor()->getUid();
+            $a['timers'][] = $timer->toArray();
         }
         return $a;
     }
