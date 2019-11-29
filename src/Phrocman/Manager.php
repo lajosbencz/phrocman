@@ -14,6 +14,9 @@ class Manager extends Group
     /** @var LoopInterface */
     protected $loop;
 
+    /** @var EventsManager */
+    protected $eventsManager;
+
     public function __construct(string $name='Phrocman', ?LoopInterface $loop=null)
     {
         $this->loop = $loop ?? Factory::create();
@@ -53,6 +56,16 @@ class Manager extends Group
     public function getLoop(): LoopInterface
     {
         return $this->loop;
+    }
+
+    public function setEventsManager(EventsManager $eventsManager): void
+    {
+        $this->eventsManager = $eventsManager;
+    }
+
+    public function getEventsManager(): EventsManager
+    {
+        return $this->eventsManager;
     }
 
 }

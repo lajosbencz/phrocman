@@ -60,23 +60,26 @@ class Client extends ThruwayClient
 
             $manager->on('start', function(RunnableInterface $runnable, Group $group) use($session) {
                 if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
                 elseif($runnable instanceof Runnable\Timer) $type = 'timer';
                 else $type = 'group';
-                $session->publish('start', [], ['type'=>$type, 'uid'=>$runnable]);
+                $session->publish('start', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
             });
 
-            $manager->on('stop', function(RunnableInterface $runnable, Group $group) use($session) {
+            $manager->on('exit', function(int $code, RunnableInterface $runnable, Group $group) use($session) {
                 if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
                 elseif($runnable instanceof Runnable\Timer) $type = 'timer';
                 else $type = 'group';
-                $session->publish('stop', [], ['type'=>$type, 'uid'=>$runnable]);
+                $session->publish('exit', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
             });
 
-            $manager->on('fail', function(RunnableInterface $runnable, Group $group) use($session) {
+            $manager->on('fail', function(int $code, RunnableInterface $runnable, Group $group) use($session) {
                 if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
                 elseif($runnable instanceof Runnable\Timer) $type = 'timer';
                 else $type = 'group';
-                $session->publish('fail', [], ['type'=>$type, 'uid'=>$runnable]);
+                $session->publish('fail', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
             });
 
 //            $manager->on('service.start', function ($uid, $instance=null, $pid=null) use($session) {

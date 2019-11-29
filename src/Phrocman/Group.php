@@ -2,13 +2,12 @@
 
 namespace Phrocman;
 
-use Evenement\EventEmitterTrait;
 use Phrocman\Runnable\Service;
 use Phrocman\Runnable\Timer;
 
-class Group implements RunnableInterface, UidInterface
+class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 {
-    use EventEmitterTrait, UidTrait;
+    use UidTrait;
 
     /** @var self|null */
     protected $parent = null;
@@ -115,6 +114,16 @@ class Group implements RunnableInterface, UidInterface
         return $this;
     }
 
+    function setEventsManager(EventsManager $eventsManager): void
+    {
+        $this->getManager()->setEventsManager($eventsManager);
+    }
+
+    function getEventsManager(): EventsManager
+    {
+        return $this->getManager()->getEventsManager();
+    }
+
     public function addChild(self $group, ?int $index=null): self
     {
         $group->setParent($this);
@@ -126,7 +135,7 @@ class Group implements RunnableInterface, UidInterface
             $this->emit('stderr', [$data, $item, $group]);
         });
         $group->on('exit', function($code, $item, $group) {
-            $this->emit('fail', [$code, $item, $group]);
+            $this->emit('exit', [$code, $item, $group]);
         });
         $group->on('fail', function($code, $item, $group) {
             $this->emit('fail', [$code, $item, $group]);

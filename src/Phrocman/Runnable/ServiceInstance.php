@@ -70,6 +70,7 @@ class ServiceInstance extends Runnable
             });
 
             $this->process->on('exit', function ($code) {
+                $code = $code ?? 0;
                 $service = $this->getService();
                 if(!$this->stopped && $service->isKeepAlive() && !$service->isValidExitCode($code)) {
                     $this->emit('fail', [$code, $this]);
@@ -104,6 +105,7 @@ class ServiceInstance extends Runnable
             'uid' => $this->getUid(),
             'pid' => $this->getProcess()->getPid(),
             'running' => $this->isRunning(),
+            'instance' => $this->getInstance(),
         ];
     }
 
