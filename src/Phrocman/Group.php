@@ -39,11 +39,17 @@ class Group implements RunnableInterface, UidInterface
 
     protected function stdListeners(Runnable $item)
     {
+        $item->on('start', function() use($item) {
+            $this->emit('start', [$item, $this]);
+            $this->getManager()->emit('start', [$item, $this]);
+        });
         $item->on('stdout', function($data) use($item) {
             $this->emit('stdout', [$data, $item, $this]);
+            $this->getManager()->emit('stdout', [$data, $item, $this]);
         });
         $item->on('stderr', function($data) use($item) {
             $this->emit('stderr', [$data, $item, $this]);
+            $this->getManager()->emit('stderr', [$data, $item, $this]);
         });
     }
 
@@ -51,10 +57,12 @@ class Group implements RunnableInterface, UidInterface
     {
         $this->stdListeners($item);
         $item->on('exit', function($code) use($item) {
-            $this->emit('fail', [$code, $item, $this]);
+            $this->emit('exit', [$code, $item, $this]);
+            $this->getManager()->emit('exit', [$code, $item, $this]);
         });
         $item->on('fail', function($code) use($item) {
             $this->emit('fail', [$code, $item, $this]);
+            $this->getManager()->emit('fail', [$code, $item, $this]);
         });
     }
 
@@ -63,9 +71,11 @@ class Group implements RunnableInterface, UidInterface
         $this->stdListeners($item);
         $item->on('trigger', function(?int $pid, float $startMicrotime) use($item) {
             $this->emit('trigger', [$pid, $startMicrotime, $item, $this]);
+            $this->getManager()->emit('trigger', [$pid, $startMicrotime, $item, $this]);
         });
         $item->on('done', function($code) use($item) {
             $this->emit('done', [$code, $item, $this]);
+            $this->getManager()->emit('done', [$code, $item, $this]);
         });
     }
 
@@ -84,7 +94,7 @@ class Group implements RunnableInterface, UidInterface
         return $this->name;
     }
 
-    public function setParent(self $parent): void
+    public function setParent(?self $parent): void
     {
         $this->parent = $parent;
     }
@@ -275,10 +285,20 @@ class Group implements RunnableInterface, UidInterface
 
     public function toArray(): array
     {
+        $parents = [];
+        $parent = $this->getParent();
+        while($parent) {
+            array_unshift($parents, [
+                'uid' => $parent->getUid(),
+                'name' => $parent->getName(),
+            ]);
+            $parent = $parent->getParent();
+        }
         $a = [
             'name' => $this->getName(),
             'uid' => $this->getUid(),
             'running' => $this->isRunning(),
+            'parents' => $parents,
             'children' => [],
             'services' => [],
             'timers' => [],

@@ -4,7 +4,10 @@ namespace Phrocman\Http\Wamp;
 
 
 use Phrocman\Exception;
+use Phrocman\Group;
 use Phrocman\Manager;
+use Phrocman\Runnable;
+use Phrocman\RunnableInterface;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\Timer;
 use React\Promise\Deferred;
@@ -54,6 +57,27 @@ class Client extends ThruwayClient
                     return $deferred->promise();
                 });
             }
+
+            $manager->on('start', function(RunnableInterface $runnable, Group $group) use($session) {
+                if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
+                else $type = 'group';
+                $session->publish('start', [], ['type'=>$type, 'uid'=>$runnable]);
+            });
+
+            $manager->on('stop', function(RunnableInterface $runnable, Group $group) use($session) {
+                if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
+                else $type = 'group';
+                $session->publish('stop', [], ['type'=>$type, 'uid'=>$runnable]);
+            });
+
+            $manager->on('fail', function(RunnableInterface $runnable, Group $group) use($session) {
+                if($runnable instanceof Runnable\Service) $type = 'service';
+                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
+                else $type = 'group';
+                $session->publish('fail', [], ['type'=>$type, 'uid'=>$runnable]);
+            });
 
 //            $manager->on('service.start', function ($uid, $instance=null, $pid=null) use($session) {
 //                $session->publish('service.start', [], ['uid'=>$uid, 'instance'=>$instance, 'pid'=>$pid]);
