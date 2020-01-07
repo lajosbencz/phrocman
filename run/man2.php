@@ -31,7 +31,6 @@ $gTmax->addTimer('second', new \Phrocman\Cron('*', '*', '*', '*', '*', '1/5'), $
 
 //echo json_encode($manager->toArray(), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE), PHP_EOL;
 
-$group->start();
 $manager->start();
 
 

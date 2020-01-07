@@ -46,11 +46,13 @@ class Manager implements EventEmitterInterface
                 $lastTime = $timeSec;
             }
         });
+        $this->group->start();
         $this->loop->run();
     }
 
     public function stop(): void
     {
+        $this->group->stop();
         $this->loop->stop();
     }
 
