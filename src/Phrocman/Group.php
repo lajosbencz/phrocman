@@ -2,12 +2,15 @@
 
 namespace Phrocman;
 
+use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use Phrocman\Runnable\Service;
 use Phrocman\Runnable\Timer;
 
 class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 {
+    const EVENT_TOPIC_LIST = ['start', 'trigger', 'stdout', 'stderr', 'exit', 'fail', 'stop'];
+
     use UidTrait, EventEmitterTrait;
 
     /** @var Manager */
@@ -38,48 +41,6 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
             }
             array_splice($arr, $index, 0, $item);
         }
-    }
-
-    protected function stdListeners(Runnable $item)
-    {
-        $item->on('start', function() use($item) {
-            //$this->emit('start', [$item, $this]);
-            $this->getManager()->emit('start', [$item, $this]);
-        });
-        $item->on('stdout', function($data) use($item) {
-            //$this->emit('stdout', [$data, $item, $this]);
-            $this->getManager()->emit('stdout', [$data, $item, $this]);
-        });
-        $item->on('stderr', function($data) use($item) {
-            //$this->emit('stderr', [$data, $item, $this]);
-            $this->getManager()->emit('stderr', [$data, $item, $this]);
-        });
-    }
-
-    protected function serviceListeners(Runnable $item)
-    {
-        $this->stdListeners($item);
-        $item->on('exit', function($code) use($item) {
-            //$this->emit('exit', [$code, $item, $this]);
-            $this->getManager()->emit('exit', [$code, $item, $this]);
-        });
-        $item->on('fail', function($code) use($item) {
-            //$this->emit('fail', [$code, $item, $this]);
-            $this->getManager()->emit('fail', [$code, $item, $this]);
-        });
-    }
-
-    protected function timerListeners(Runnable $item)
-    {
-        $this->stdListeners($item);
-        $item->on('trigger', function(?int $pid, float $startMicrotime) use($item) {
-            //$this->emit('trigger', [$pid, $startMicrotime, $item, $this]);
-            $this->getManager()->emit('trigger', [$pid, $startMicrotime, $item, $this]);
-        });
-        $item->on('done', function($code) use($item) {
-            //$this->emit('done', [$code, $item, $this]);
-            $this->getManager()->emit('done', [$code, $item, $this]);
-        });
     }
 
     public function __construct(string $name, ?self $parent=null)
@@ -120,12 +81,12 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         return $this->manager;
     }
 
-    function setEventsManager(EventsManager $eventsManager): void
+    function setEventsManager(EventEmitterInterface $eventsManager): void
     {
         $this->getManager()->setEventsManager($eventsManager);
     }
 
-    function getEventsManager(): EventsManager
+    function getEventsManager(): EventEmitterInterface
     {
         return $this->getManager()->getEventsManager();
     }
@@ -134,26 +95,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $group->setParent($this);
         $this->add($this->children, $group, $index);
-        $group->on('stdout', function($data, $item, $group) {
-            if($group !== $this) {
-                $this->emit('stdout', [$data, $item, $group]);
-            }
-        });
-        $group->on('stderr', function($data, $item, $group) {
-            if($group !== $this) {
-                $this->emit('stderr', [$data, $item, $group]);
-            }
-        });
-        $group->on('exit', function($code, $item, $group) {
-            if($group !== $this) {
-                $this->emit('exit', [$code, $item, $group]);
-            }
-        });
-        $group->on('fail', function($code, $item, $group) {
-            if($group !== $this) {
-                $this->emit('fail', [$code, $item, $group]);
-            }
-        });
+        foreach(self::EVENT_TOPIC_LIST as $event) {
+            $group->on($event, function(...$args) use($event) {
+                $this->emit($event, func_get_args());
+            });
+        }
         return $this;
     }
 
@@ -171,7 +117,24 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $item = new Service($this, $name, $cmd, $cwd, $env, $instanceCount, $keepAlive, $validExitCodes);
         $this->add($this->services, $item);
-        $this->serviceListeners($item);
+        $item->on('start', function($what) {
+            $this->emit('start', [$what]);
+        });
+        $item->on('stdout', function($what, $data) {
+            $this->emit('stdout', [$what, $data]);
+        });
+        $item->on('stderr', function($what, $data) {
+            $this->emit('stderr', [$what, $data]);
+        });
+        $item->on('fail', function($what, $code) {
+            $this->emit('fail', [$what, $code]);
+        });
+        $item->on('exit', function($what, $code) {
+            $this->emit('exit', [$what, $code]);
+        });
+        $item->on('stop', function($what) {
+            $this->emit('stop', [$what]);
+        });
         return $item;
     }
 
@@ -189,7 +152,24 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $item = new Timer($this, $name, $cron, $cmd, $cwd, $env);
         $this->add($this->timers, $item);
-        $this->timerListeners($item);
+        $item->on('start', function() use($item) {
+            $this->emit('start', [$item]);
+        });
+        $item->on('stdout', function( $data) use($item) {
+            $this->emit('stdout', [$item, $data]);
+        });
+        $item->on('stderr', function( $data) use($item) {
+            $this->emit('stderr', [$item, $data]);
+        });
+        $item->on('trigger', function() use($item) {
+            $this->emit('trigger', [$item]);
+        });
+        $item->on('exit', function($code) use($item) {
+            $this->emit('exit', [$item, $code]);
+        });
+        $item->on('stop', function() use($item) {
+            $this->emit('stop', [$item]);
+        });
         return $item;
     }
 
@@ -234,6 +214,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         foreach($this->iterate() as $runnable) {
             $runnable->start();
         }
+        $this->emit('start', [$this]);
     }
 
     public function stop(): void
@@ -241,6 +222,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         foreach($this->iterate() as $runnable) {
             $runnable->stop();
         }
+        $this->emit('stop', [$this]);
     }
 
     public function restart(): void
@@ -248,9 +230,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         foreach($this->iterate() as $runnable) {
             $runnable->stop();
         }
+        $this->emit('stop', [$this]);
         foreach($this->iterate() as $runnable) {
             $runnable->start();
         }
+        $this->emit('start', [$this]);
     }
 
     public function isRunning(): bool
@@ -309,7 +293,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         return null;
     }
 
-    public function toArray(): array
+    public function getParentList(): array
     {
         $parents = [];
         $parent = $this->getParent();
@@ -320,11 +304,17 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
             ]);
             $parent = $parent->getParent();
         }
+        return $parents;
+    }
+
+    public function toArray(): array
+    {
         $a = [
+            'type' => 'group',
             'name' => $this->getName(),
             'uid' => $this->getUid(),
             'running' => $this->isRunning(),
-            'parents' => $parents,
+            'parents' => $this->getParentList(),
             'children' => [],
             'services' => [],
             'timers' => [],

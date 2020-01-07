@@ -73,35 +73,58 @@ class Client extends ThruwayClient
                 });
             }
 
-            $manager->on('start', function(RunnableInterface $runnable, Group $group) use($session) {
-                if($runnable instanceof Runnable\Service) $type = 'service';
-                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
-                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
-                else $type = 'group';
-                $session->publish('start', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
+            $manager->getEventsManager()->on('start', function($what) use($session) {
+                $session->publish('event', [], [
+                    'event' => 'start',
+                    'what' => $what->toArray(),
+                ]);
             });
 
-            $manager->on('stdout', function(string $data, UidInterface $item, Group $group) use($session) {
-                $session->publish('stdout.'.$item->getUid(), [$data, $item, $group]);
-            });
-            $manager->on('stderr', function(string $data, UidInterface $item, Group $group) use($session) {
-                $session->publish('stderr.'.$item->getUid(), [$data, $item, $group]);
-            });
-
-            $manager->on('exit', function(int $code, RunnableInterface $runnable, Group $group) use($session) {
-                if($runnable instanceof Runnable\Service) $type = 'service';
-                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
-                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
-                else $type = 'group';
-                $session->publish('exit', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
+            $manager->getEventsManager()->on('stop', function($what) use($session) {
+                $session->publish('event', [], [
+                    'event' => 'stop',
+                    'what' => $what->toArray(),
+                ]);
             });
 
-            $manager->on('fail', function(int $code, RunnableInterface $runnable, Group $group) use($session) {
-                if($runnable instanceof Runnable\Service) $type = 'service';
-                elseif($runnable instanceof Runnable\ServiceInstance) $type = 'instance';
-                elseif($runnable instanceof Runnable\Timer) $type = 'timer';
-                else $type = 'group';
-                $session->publish('fail', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
+            $manager->getEventsManager()->on('trigger', function($what) use($session) {
+                $session->publish('event', [], [
+                    'event' => 'trigger',
+                    'what' => $what->toArray(),
+                ]);
+            });
+
+            $manager->getEventsManager()->on('stdout', function($what, $data) use($session) {
+                $session->publish('stdout.'.$what->getUid(), [], [
+                    'event' => 'stdout',
+                    'what' => $what->toArray(),
+                    'data' => $data,
+                ]);
+                echo $data;
+            });
+            $manager->getEventsManager()->on('stderr', function($what, $data) use($session) {
+                $session->publish('stderr.'.$what->getUid(), [], [
+                    'event' => 'stderr',
+                    'what' => $what->toArray(),
+                    'data' => $data,
+                ]);
+                echo '[ERR] ' . $data;
+            });
+
+            $manager->getEventsManager()->on('exit', function($what, $code) use($session) {
+                $session->publish('event', [], [
+                    'event' => 'exit',
+                    'what' => $what->toArray(),
+                    'code' => $code,
+                ]);
+            });
+
+            $manager->getEventsManager()->on('fail', function($what, $code) use($session) {
+                $session->publish('event', [], [
+                    'event' => 'fail',
+                    'what' => $what->toArray(),
+                    'code' => $code,
+                ]);
             });
 
 //            $manager->on('service.start', function ($uid, $instance=null, $pid=null) use($session) {

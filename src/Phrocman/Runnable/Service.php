@@ -22,6 +22,9 @@ class Service extends Runnable
     /** @var bool */
     protected $keepAlive = true;
 
+    /** @var bool */
+    protected $stopped = false;
+
     /** @var ServiceInstance[] */
     protected $instances = [];
 
@@ -41,17 +44,20 @@ class Service extends Runnable
         if($d > 0) {
             for($i=$c; $i<$count; $i++) {
                 $instance = new ServiceInstance($this, $i);
-                $instance->on('stdout', function($data, UidInterface $item, Group $group) {
-                    $this->getManager()->emit('stdout', func_get_args());
+                $instance->on('start', function() use($instance) {
+                    $this->emit('start', [$instance]);
                 });
-                $instance->on('stderr', function($data, UidInterface $item, Group $group) {
-                    $this->getManager()->emit('stderr', func_get_args());
+                $instance->on('stdout', function($data) use($instance) {
+                    $this->emit('stdout', [$instance, $data]);
                 });
-                $instance->on('exit', function($data, UidInterface $item, Group $group) {
-                    $this->getManager()->emit('exit', func_get_args());
+                $instance->on('stderr', function($data) use($instance) {
+                    $this->emit('stderr', [$instance, $data]);
                 });
-                $instance->on('fail', function($data, UidInterface $item, Group $group) {
-                    $this->getManager()->emit('fail', func_get_args());
+                $instance->on('fail', function($code) use($instance) {
+                    $this->emit('fail', [$instance, $code]);
+                });
+                $instance->on('exit', function($code) use($instance) {
+                    $this->emit('exit', [$instance, $code]);
                 });
                 $this->instances[] = $instance;
             }
@@ -101,35 +107,47 @@ class Service extends Runnable
     public function isRunning(): bool
     {
         foreach($this->instances as $instance) {
-            if($instance->isRunning()) {
-                return true;
+            if(!$instance->isRunning()) {
+                return false;
             }
         }
-        return false;
+        return true;
+    }
+
+    public function isStopped(): bool
+    {
+        return $this->stopped;
     }
 
     public function start(): void
     {
+        $this->stopped = false;
         foreach($this->instances as $instance) {
             $instance->start();
         }
+        $this->emit('start', [$this]);
     }
 
     public function stop(): void
     {
+        $this->stopped = true;
         foreach($this->instances as $instance) {
             $instance->stop();
         }
+        $this->emit('stop', [$this]);
     }
 
     public function restart(): void
     {
+        $this->stopped = false;
         foreach($this->instances as $instance) {
             $instance->stop();
         }
+        $this->emit('stop', [$this]);
         foreach($this->instances as $instance) {
             $instance->start();
         }
+        $this->emit('start', [$this]);
     }
 
     public function toArray(): array
@@ -139,8 +157,9 @@ class Service extends Runnable
             $instances[] = $instance->toArray();
         }
         return [
-            'uid' => $this->getUid(),
+            'type' => 'service',
             'name' => $this->getName(),
+            'uid' => $this->getUid(),
             'cmd' => $this->getCmd(),
             'running' => $this->isRunning(),
             'keepAlive' => $this->isKeepAlive(),

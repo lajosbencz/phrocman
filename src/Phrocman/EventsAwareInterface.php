@@ -3,8 +3,10 @@
 namespace Phrocman;
 
 
+use Evenement\EventEmitterInterface;
+
 interface EventsAwareInterface
 {
-    function setEventsManager(EventsManager $eventsManager): void;
-    function getEventsManager(): EventsManager;
+    function setEventsManager(EventEmitterInterface $eventsManager): void;
+    function getEventsManager(): EventEmitterInterface;
 }

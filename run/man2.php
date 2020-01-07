@@ -9,13 +9,14 @@ $group = new \Phrocman\Group('Travelhood');
 
 $manager = new \Phrocman\Manager($group);
 $server = new \Phrocman\Http\Server($manager, '0.0.0.0:8080');
-$manager->on('tick', function(\DateTime $dateTime) {
+$eventsManager = new \Phrocman\EventsManager;
+$eventsManager->on('tick', function(\DateTime $dateTime) {
     //echo 'tick second ', $dateTime->format('H:i:s.u'), PHP_EOL;
 });
-$manager->on('stdout', function($data) {
+$eventsManager->on('stdout', function($data) {
     echo $data;
 });
-$manager->on('stderr', function($data) {
+$eventsManager->on('stderr', function($data) {
     echo 'ERROR: ', $data;
 });
 

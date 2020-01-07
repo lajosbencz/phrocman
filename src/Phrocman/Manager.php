@@ -10,28 +10,28 @@ use React\ChildProcess\Process;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
 
-class Manager implements EventEmitterInterface
+class Manager implements EventsAwareInterface
 {
     /** @var LoopInterface */
     protected $loop;
 
-    /** @var EventsManager */
+    /** @var EventEmitterInterface */
     protected $eventsManager;
 
     /** @var Group */
     protected $group;
 
-    public function __construct(Group $group, ?LoopInterface $loop=null)
+    public function __construct(Group $group, ?EventsManager $eventsManager=null, ?LoopInterface $loop=null)
     {
-        $this->setEventsManager(new EventsManager);
+        $this->setEventsManager($eventsManager ? : new EventsManager);
         $group->setManager($this);
+        foreach(Group::EVENT_TOPIC_LIST as $event) {
+            $group->on($event, function(...$args) use($event) {
+                $this->getEventsManager()->emit($event, $args);
+            });
+        }
         $this->group = $group;
         $this->loop = $loop ?? Factory::create();
-    }
-
-    public function tickSecond(DateTime $dateTime): void
-    {
-        $this->emit('tick', [$dateTime]);
     }
 
     public function start(): void
@@ -42,7 +42,8 @@ class Manager implements EventEmitterInterface
             $timeSec = floor($time);
             if ($timeSec > $lastTime) {
                 $now = \DateTime::createFromFormat('U.u', sprintf('%0.6f', $time));
-                $this->tickSecond($now);
+                $this->group->tickSecond($now);
+                $this->getEventsManager()->emit('tick', [$now]);
                 $lastTime = $timeSec;
             }
         });
@@ -66,44 +67,14 @@ class Manager implements EventEmitterInterface
         return $this->loop;
     }
 
-    public function setEventsManager(EventsManager $eventsManager): void
+    public function setEventsManager(EventEmitterInterface $eventsManager): void
     {
         $this->eventsManager = $eventsManager;
     }
 
-    public function getEventsManager(): EventsManager
+    public function getEventsManager(): EventEmitterInterface
     {
         return $this->eventsManager;
-    }
-
-    public function on($event, callable $listener)
-    {
-        return $this->eventsManager->on($event, $listener);
-    }
-
-    public function once($event, callable $listener)
-    {
-        return $this->eventsManager->once($event, $listener);
-    }
-
-    public function removeListener($event, callable $listener): void
-    {
-        $this->eventsManager->removeListener($event, $listener);
-    }
-
-    public function removeAllListeners($event = null): void
-    {
-        $this->eventsManager->removeAllListeners($event);
-    }
-
-    public function listeners($event = null): array
-    {
-        return $this->eventsManager->listeners($event);
-    }
-
-    public function emit($event, array $arguments = []): void
-    {
-        $this->eventsManager->emit($event, $arguments);
     }
 
     public function findGroup(string $uid): ?Group

@@ -16,7 +16,11 @@ class Timer extends Runnable
     /** @var Cron */
     protected $cron;
 
+    /** @var bool */
     protected $running = false;
+
+    /** @var int */
+    protected $lastRun = 0;
 
     public function __construct(Group $group, string $name, Cron $cron, string $cmd, string $cwd = '', array $env = [])
     {
@@ -29,14 +33,23 @@ class Timer extends Runnable
         return $this->cron;
     }
 
+    public function getLastRun(): int
+    {
+        return $this->lastRun;
+    }
+
     public function tickSecond(\DateTime $dateTime): void
     {
         if ($this->isRunning() && $this->getCron()->check($dateTime)) {
             $cmd = $this->getCmd();
             $cwd = $this->getCwd();
             $env = $this->getEnv();
+            $this->lastRun = $start = microtime(true);
             $process = new Process($cmd, $cwd, $env);
-            $start = microtime(true);
+            $process->on('exit', function ($code) use($start) {
+                $took = microtime(true) - $start;
+                $this->emit('exit', [$code, $took]);
+            });
             $process->start($this->getLoop());
             $process->stdout->on('data', function ($data) {
                 $this->emit('stdout', [$data]);
@@ -44,27 +57,28 @@ class Timer extends Runnable
             $process->stderr->on('data', function ($error) {
                 $this->emit('stderr', [$error]);
             });
-            $process->on('exit', function ($code) use($start) {
-                $took = microtime(true) - $start;
-                $this->emit('done', [$code, $took]);
-            });
-            $this->emit('trigger', [$process->getPid(), $start]);
+            $this->emit('trigger');
         }
     }
 
     public function start(): void
     {
         $this->running = true;
+        $this->emit('start');
     }
 
     public function stop(): void
     {
         $this->running = false;
+        $this->emit('stop');
     }
 
     public function restart(): void
     {
-        $this->running = true;
+        if(!$this->running) {
+            $this->running = true;
+            $this->emit('start');
+        }
     }
 
     public function isRunning(): bool
@@ -75,11 +89,13 @@ class Timer extends Runnable
     public function toArray(): array
     {
         return [
-            'uid' => $this->getUid(),
+            'type' => 'timer',
             'name' => $this->getName(),
+            'uid' => $this->getUid(),
             'cron' => $this->getCron()->toArray(),
             'cmd' => $this->getCmd(),
             'running' => $this->isRunning(),
+            'last_run' => $this->getLastRun(),
         ];
     }
 

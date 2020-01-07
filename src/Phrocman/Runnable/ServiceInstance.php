@@ -9,6 +9,8 @@ use React\EventLoop\LoopInterface;
 
 class ServiceInstance extends Runnable
 {
+    const ENV_KEY_INSTANCE = '_PHROCMAN_INSTANCE';
+
     /** @var Service */
     protected $service;
 
@@ -33,7 +35,8 @@ class ServiceInstance extends Runnable
 
     public function __construct(Service $service, int $instance)
     {
-        parent::__construct($service->getGroup(), $service->getName(), $service->getCmd(), $service->getCwd(), $service->getEnv());
+        $env = array_merge([self::ENV_KEY_INSTANCE => $instance], $service->getEnv());
+        parent::__construct($service->getGroup(), $service->getName(), $service->getCmd(), $service->getCwd(), $env);
         $this->service = $service;
         $this->instance = $instance;
         $this->createProcess();
@@ -59,28 +62,32 @@ class ServiceInstance extends Runnable
         $this->stopped = false;
         if(!$this->isRunning()) {
             $this->createProcess();
-            $this->process->start($this->getLoop());
-            $this->getManager()->emit('start', [$this, $this->getService()->getGroup()]);
-
-            $this->process->stdout->on('data', function ($data) {
-                $this->getManager()->emit('stdout', [$data, $this, $this->getService()->getGroup()]);
-            });
-
-            $this->process->stderr->on('data', function ($error) {
-                $this->getManager()->emit('stderr', [$error, $this, $this->getService()->getGroup()]);
-            });
 
             $this->process->on('exit', function ($code) {
                 $code = $code ?? 0;
                 $service = $this->getService();
                 if(!$this->stopped && $service->isKeepAlive() && !$service->isValidExitCode($code)) {
-                    $this->getManager()->emit('fail', [$code, $this, $this->getService()->getGroup()]);
-                    $this->createProcess();
-                    $this->start();
+                    $this->emit('fail', [$code]);
+                    $this->getLoop()->addTimer(3, function() {
+                        $this->start();
+                    });
                 } else {
-                    $this->getManager()->emit('exit', [$code, $this, $this->getService()->getGroup()]);
+                    $this->stopped = true;
+                    $this->emit('exit', [$code]);
                 }
             });
+
+            $this->process->start($this->getLoop());
+
+            $this->process->stdout->on('data', function ($data) {
+                $this->emit('stdout', [$data]);
+            });
+
+            $this->process->stderr->on('data', function ($error) {
+                $this->emit('stderr', [$error]);
+            });
+
+            $this->emit('start');
         }
     }
 
@@ -103,6 +110,7 @@ class ServiceInstance extends Runnable
     public function toArray(): array
     {
         return [
+            'type' => 'instance',
             'uid' => $this->getUid(),
             'pid' => $this->getProcess()->getPid(),
             'running' => $this->isRunning(),
