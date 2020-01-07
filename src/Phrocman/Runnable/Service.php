@@ -4,7 +4,10 @@ namespace Phrocman\Runnable;
 
 
 use Phrocman\Descriptor;
+use Phrocman\Group;
+use Phrocman\Manager;
 use Phrocman\Runnable;
+use Phrocman\UidInterface;
 use React\ChildProcess\Process;
 use React\EventLoop\LoopInterface;
 
@@ -22,9 +25,9 @@ class Service extends Runnable
     /** @var ServiceInstance[] */
     protected $instances = [];
 
-    public function __construct(LoopInterface $loop, string $name, string $cmd, string $cwd = '', array $env = [], int $instanceCount = 1, bool $keepAlive=true, array $validExitCodes=[])
+    public function __construct(Group $group, string $name, string $cmd, string $cwd = '', array $env = [], int $instanceCount = 1, bool $keepAlive=true, array $validExitCodes=[])
     {
-        parent::__construct($loop, $name, $cmd, $cwd, $env);
+        parent::__construct($group, $name, $cmd, $cwd, $env);
         $this->keepAlive = $keepAlive;
         $this->validExitCodes = $validExitCodes;
         $this->setInstanceCount($instanceCount);
@@ -38,17 +41,17 @@ class Service extends Runnable
         if($d > 0) {
             for($i=$c; $i<$count; $i++) {
                 $instance = new ServiceInstance($this, $i);
-                $instance->on('stdout', function() {
-                    $this->emit('stdout', func_get_args());
+                $instance->on('stdout', function($data, UidInterface $item, Group $group) {
+                    $this->getManager()->emit('stdout', func_get_args());
                 });
-                $instance->on('stderr', function() {
-                    $this->emit('stderr', func_get_args());
+                $instance->on('stderr', function($data, UidInterface $item, Group $group) {
+                    $this->getManager()->emit('stderr', func_get_args());
                 });
-                $instance->on('exit', function() {
-                    $this->emit('exit', func_get_args());
+                $instance->on('exit', function($data, UidInterface $item, Group $group) {
+                    $this->getManager()->emit('exit', func_get_args());
                 });
-                $instance->on('fail', function() {
-                    $this->emit('fail', func_get_args());
+                $instance->on('fail', function($data, UidInterface $item, Group $group) {
+                    $this->getManager()->emit('fail', func_get_args());
                 });
                 $this->instances[] = $instance;
             }

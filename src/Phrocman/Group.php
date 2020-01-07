@@ -2,12 +2,16 @@
 
 namespace Phrocman;
 
+use Evenement\EventEmitterTrait;
 use Phrocman\Runnable\Service;
 use Phrocman\Runnable\Timer;
 
 class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 {
-    use UidTrait;
+    use UidTrait, EventEmitterTrait;
+
+    /** @var Manager */
+    protected $manager = null;
 
     /** @var self|null */
     protected $parent = null;
@@ -39,15 +43,15 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     protected function stdListeners(Runnable $item)
     {
         $item->on('start', function() use($item) {
-            $this->emit('start', [$item, $this]);
+            //$this->emit('start', [$item, $this]);
             $this->getManager()->emit('start', [$item, $this]);
         });
         $item->on('stdout', function($data) use($item) {
-            $this->emit('stdout', [$data, $item, $this]);
+            //$this->emit('stdout', [$data, $item, $this]);
             $this->getManager()->emit('stdout', [$data, $item, $this]);
         });
         $item->on('stderr', function($data) use($item) {
-            $this->emit('stderr', [$data, $item, $this]);
+            //$this->emit('stderr', [$data, $item, $this]);
             $this->getManager()->emit('stderr', [$data, $item, $this]);
         });
     }
@@ -56,11 +60,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $this->stdListeners($item);
         $item->on('exit', function($code) use($item) {
-            $this->emit('exit', [$code, $item, $this]);
+            //$this->emit('exit', [$code, $item, $this]);
             $this->getManager()->emit('exit', [$code, $item, $this]);
         });
         $item->on('fail', function($code) use($item) {
-            $this->emit('fail', [$code, $item, $this]);
+            //$this->emit('fail', [$code, $item, $this]);
             $this->getManager()->emit('fail', [$code, $item, $this]);
         });
     }
@@ -69,11 +73,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $this->stdListeners($item);
         $item->on('trigger', function(?int $pid, float $startMicrotime) use($item) {
-            $this->emit('trigger', [$pid, $startMicrotime, $item, $this]);
+            //$this->emit('trigger', [$pid, $startMicrotime, $item, $this]);
             $this->getManager()->emit('trigger', [$pid, $startMicrotime, $item, $this]);
         });
         $item->on('done', function($code) use($item) {
-            $this->emit('done', [$code, $item, $this]);
+            //$this->emit('done', [$code, $item, $this]);
             $this->getManager()->emit('done', [$code, $item, $this]);
         });
     }
@@ -86,6 +90,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
             $this->setParent($parent);
             $parent->addChild($this);
         }
+    }
+
+    public function setManager(Manager $manager) {
+        $this->manager = $manager;
+        return $this;
     }
 
     public function getName()
@@ -103,15 +112,12 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         return $this->parent;
     }
 
-    /**
-     * @return Manager
-     */
-    public function getManager(): self
+    public function getManager(): Manager
     {
         if($this->parent) {
             return $this->parent->getManager();
         }
-        return $this;
+        return $this->manager;
     }
 
     function setEventsManager(EventsManager $eventsManager): void
@@ -129,16 +135,24 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         $group->setParent($this);
         $this->add($this->children, $group, $index);
         $group->on('stdout', function($data, $item, $group) {
-            $this->emit('stdout', [$data, $item, $group]);
+            if($group !== $this) {
+                $this->emit('stdout', [$data, $item, $group]);
+            }
         });
         $group->on('stderr', function($data, $item, $group) {
-            $this->emit('stderr', [$data, $item, $group]);
+            if($group !== $this) {
+                $this->emit('stderr', [$data, $item, $group]);
+            }
         });
         $group->on('exit', function($code, $item, $group) {
-            $this->emit('exit', [$code, $item, $group]);
+            if($group !== $this) {
+                $this->emit('exit', [$code, $item, $group]);
+            }
         });
         $group->on('fail', function($code, $item, $group) {
-            $this->emit('fail', [$code, $item, $group]);
+            if($group !== $this) {
+                $this->emit('fail', [$code, $item, $group]);
+            }
         });
         return $this;
     }
@@ -155,7 +169,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 
     public function addService(string $name, string $cmd, string $cwd = '', array $env = [], int $instanceCount = 1, bool $keepAlive=true, array $validExitCodes=[]): Service
     {
-        $item = new Service($this->getManager()->getLoop(), $name, $cmd, $cwd, $env, $instanceCount, $keepAlive, $validExitCodes);
+        $item = new Service($this, $name, $cmd, $cwd, $env, $instanceCount, $keepAlive, $validExitCodes);
         $this->add($this->services, $item);
         $this->serviceListeners($item);
         return $item;
@@ -173,7 +187,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 
     public function addTimer(string $name, Cron $cron, string $cmd, string $cwd = '', array $env = []): Timer
     {
-        $item = new Timer($this->getManager()->getLoop(), $name, $cron, $cmd, $cwd, $env);
+        $item = new Timer($this, $name, $cron, $cmd, $cwd, $env);
         $this->add($this->timers, $item);
         $this->timerListeners($item);
         return $item;
@@ -251,6 +265,9 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 
     public function findGroup(string $uid): ?self
     {
+        if($this->getUid() === $uid) {
+            return $this;
+        }
         foreach($this->children as $child) {
             if($child->getUid() === $uid) {
                 return $child;

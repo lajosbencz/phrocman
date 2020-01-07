@@ -8,6 +8,8 @@ use Phrocman\Group;
 use Phrocman\Manager;
 use Phrocman\Runnable;
 use Phrocman\RunnableInterface;
+use Phrocman\UidInterface;
+use Phrocman\Util;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\Timer;
 use React\Promise\Deferred;
@@ -30,6 +32,16 @@ class Client extends ThruwayClient
                 $session->publish('heartbeat', [$x++]);
             });
 
+            $session->getLoop()->addPeriodicTimer(10, function() use($session) {
+                $mem = memory_get_usage(true);
+                $memFormatted = Util::formatSize($mem);
+//                $session->publish('stat', [], [
+//                    'memory' => $mem,
+//                    'memory_formatted' => $memFormatted,
+//                ]);
+                echo '[SYS] memory usage: ', $memFormatted, PHP_EOL;
+            });
+
             foreach([
                 'index',
                 'groupInfo',
@@ -37,6 +49,9 @@ class Client extends ThruwayClient
                 'groupStop',
                 'groupRestart',
                 'serviceInfo',
+                'serviceStart',
+                'serviceStop',
+                'serviceRestart',
                 'timerInfo',
                         ] as $method) {
                 $session->register($method, function($args, $kvArgs, $details) use($method) {
@@ -64,6 +79,13 @@ class Client extends ThruwayClient
                 elseif($runnable instanceof Runnable\Timer) $type = 'timer';
                 else $type = 'group';
                 $session->publish('start', [], ['type'=>$type, 'uid'=>$runnable->getUid(), 'runnable'=>$runnable->toArray()]);
+            });
+
+            $manager->on('stdout', function(string $data, UidInterface $item, Group $group) use($session) {
+                $session->publish('stdout.'.$item->getUid(), [$data, $item, $group]);
+            });
+            $manager->on('stderr', function(string $data, UidInterface $item, Group $group) use($session) {
+                $session->publish('stderr.'.$item->getUid(), [$data, $item, $group]);
             });
 
             $manager->on('exit', function(int $code, RunnableInterface $runnable, Group $group) use($session) {
@@ -136,6 +158,33 @@ class Client extends ThruwayClient
     {
         if($service = $this->manager->findService($kvArgs->uid)) {
             return [$service->toArray()];
+        }
+        throw new Exception('invalid service: '.$kvArgs->uid);
+    }
+
+    public function serviceStart($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($service = $this->manager->findService($kvArgs->uid)) {
+            $service->start();
+            return [true];
+        }
+        throw new Exception('invalid service: '.$kvArgs->uid);
+    }
+
+    public function serviceRestart($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($service = $this->manager->findService($kvArgs->uid)) {
+            $service->restart();
+            return [true];
+        }
+        throw new Exception('invalid service: '.$kvArgs->uid);
+    }
+
+    public function serviceStop($args, $kvArgs, $details, Deferred $deferred)
+    {
+        if($service = $this->manager->findService($kvArgs->uid)) {
+            $service->stop();
+            return [true];
         }
         throw new Exception('invalid service: '.$kvArgs->uid);
     }

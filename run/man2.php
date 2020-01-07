@@ -5,9 +5,9 @@ require_once __DIR__ . '/../vendor/autoload.php';
 $cwd = dirname(__DIR__) . '/test';
 $exec = 'php '.$cwd.'/payload.php';
 
+$group = new \Phrocman\Group('Travelhood');
 
-
-$manager = new \Phrocman\Manager('Travelhood');
+$manager = new \Phrocman\Manager($group);
 $server = new \Phrocman\Http\Server($manager, '0.0.0.0:8080');
 $manager->on('tick', function(\DateTime $dateTime) {
     //echo 'tick second ', $dateTime->format('H:i:s.u'), PHP_EOL;
@@ -19,18 +19,19 @@ $manager->on('stderr', function($data) {
     echo 'ERROR: ', $data;
 });
 
-$gWs = new \Phrocman\Group('WebSocket', $manager);
+$gWs = new \Phrocman\Group('WebSocket', $group);
 $gWsTour = new \Phrocman\Group('tour', $gWs);
 $wsTourInfo = $gWsTour->addService('info', $exec.' --r -1 --f 2 tour info', $cwd, [], 5);
 $wsTourJoin = $gWsTour->addService('join', $exec.' --r -1 --f 5 tour join', $cwd);
 $wsTourComment = $gWsTour->addService('comment', $exec.' --r -1 --f 10 tour comment', $cwd);
 
-$gTmax = new \Phrocman\Group('Travelmax', $manager);
+$gTmax = new \Phrocman\Group('Travelmax', $group);
 $gTmax->addTimer('daily', new \Phrocman\Cron('*', '*', '*', '6,7,8', '0', '0'), $exec.' timer tmax daily');
 $gTmax->addTimer('second', new \Phrocman\Cron('*', '*', '*', '*', '*', '1/5'), $exec.' timer tmax second');
 
 //echo json_encode($manager->toArray(), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE), PHP_EOL;
 
+$group->start();
 $manager->start();
 
 

@@ -33,7 +33,7 @@ class ServiceInstance extends Runnable
 
     public function __construct(Service $service, int $instance)
     {
-        parent::__construct($service->getLoop(), $service->getName(), $service->getCmd(), $service->getCwd(), $service->getEnv());
+        parent::__construct($service->getGroup(), $service->getName(), $service->getCmd(), $service->getCwd(), $service->getEnv());
         $this->service = $service;
         $this->instance = $instance;
         $this->createProcess();
@@ -59,25 +59,26 @@ class ServiceInstance extends Runnable
         $this->stopped = false;
         if(!$this->isRunning()) {
             $this->createProcess();
-            $this->process->start($this->loop);
+            $this->process->start($this->getLoop());
+            $this->getManager()->emit('start', [$this, $this->getService()->getGroup()]);
 
             $this->process->stdout->on('data', function ($data) {
-                $this->emit('stdout', [$data]);
+                $this->getManager()->emit('stdout', [$data, $this, $this->getService()->getGroup()]);
             });
 
             $this->process->stderr->on('data', function ($error) {
-                $this->emit('stderr', [$error]);
+                $this->getManager()->emit('stderr', [$error, $this, $this->getService()->getGroup()]);
             });
 
             $this->process->on('exit', function ($code) {
                 $code = $code ?? 0;
                 $service = $this->getService();
                 if(!$this->stopped && $service->isKeepAlive() && !$service->isValidExitCode($code)) {
-                    $this->emit('fail', [$code, $this]);
+                    $this->getManager()->emit('fail', [$code, $this, $this->getService()->getGroup()]);
                     $this->createProcess();
                     $this->start();
                 } else {
-                    $this->emit('exit', [$code, $this]);
+                    $this->getManager()->emit('exit', [$code, $this, $this->getService()->getGroup()]);
                 }
             });
         }

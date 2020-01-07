@@ -5,6 +5,8 @@ namespace Phrocman\Runnable;
 
 use Phrocman\Cron;
 use Phrocman\Descriptor;
+use Phrocman\Group;
+use Phrocman\Manager;
 use Phrocman\Runnable;
 use React\ChildProcess\Process;
 use React\EventLoop\LoopInterface;
@@ -16,9 +18,9 @@ class Timer extends Runnable
 
     protected $running = false;
 
-    public function __construct(LoopInterface $loop, string $name, Cron $cron, string $cmd, string $cwd = '', array $env = [])
+    public function __construct(Group $group, string $name, Cron $cron, string $cmd, string $cwd = '', array $env = [])
     {
-        parent::__construct($loop, $name, $cmd, $cwd, $env);
+        parent::__construct($group, $name, $cmd, $cwd, $env);
         $this->cron = $cron;
     }
 
@@ -35,7 +37,7 @@ class Timer extends Runnable
             $env = $this->getEnv();
             $process = new Process($cmd, $cwd, $env);
             $start = microtime(true);
-            $process->start($this->loop);
+            $process->start($this->getLoop());
             $process->stdout->on('data', function ($data) {
                 $this->emit('stdout', [$data]);
             });

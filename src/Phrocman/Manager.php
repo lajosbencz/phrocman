@@ -4,12 +4,13 @@ namespace Phrocman;
 
 
 use DateTime;
+use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use React\ChildProcess\Process;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
 
-class Manager extends Group
+class Manager implements EventEmitterInterface
 {
     /** @var LoopInterface */
     protected $loop;
@@ -17,16 +18,20 @@ class Manager extends Group
     /** @var EventsManager */
     protected $eventsManager;
 
-    public function __construct(string $name='Phrocman', ?LoopInterface $loop=null)
+    /** @var Group */
+    protected $group;
+
+    public function __construct(Group $group, ?LoopInterface $loop=null)
     {
+        $this->setEventsManager(new EventsManager);
+        $group->setManager($this);
+        $this->group = $group;
         $this->loop = $loop ?? Factory::create();
-        parent::__construct($name);
     }
 
     public function tickSecond(DateTime $dateTime): void
     {
         $this->emit('tick', [$dateTime]);
-        parent::tickSecond($dateTime);
     }
 
     public function start(): void
@@ -41,18 +46,19 @@ class Manager extends Group
                 $lastTime = $timeSec;
             }
         });
-        parent::start();
         $this->loop->run();
     }
 
     public function stop(): void
     {
-        parent::stop();
+        $this->loop->stop();
     }
 
-    /**
-     * @return LoopInterface
-     */
+    public function getGroup(): Group
+    {
+        return $this->group;
+    }
+
     public function getLoop(): LoopInterface
     {
         return $this->loop;
@@ -66,6 +72,56 @@ class Manager extends Group
     public function getEventsManager(): EventsManager
     {
         return $this->eventsManager;
+    }
+
+    public function on($event, callable $listener)
+    {
+        return $this->eventsManager->on($event, $listener);
+    }
+
+    public function once($event, callable $listener)
+    {
+        return $this->eventsManager->once($event, $listener);
+    }
+
+    public function removeListener($event, callable $listener): void
+    {
+        $this->eventsManager->removeListener($event, $listener);
+    }
+
+    public function removeAllListeners($event = null): void
+    {
+        $this->eventsManager->removeAllListeners($event);
+    }
+
+    public function listeners($event = null): array
+    {
+        return $this->eventsManager->listeners($event);
+    }
+
+    public function emit($event, array $arguments = []): void
+    {
+        $this->eventsManager->emit($event, $arguments);
+    }
+
+    public function findGroup(string $uid): ?Group
+    {
+        return $this->group->findGroup($uid);
+    }
+
+    public function findService(string $uid): ?Runnable\Service
+    {
+        return $this->group->findService($uid);
+    }
+
+    public function findTimer(string $uid): ?Runnable\Timer
+    {
+        return $this->group->findTimer($uid);
+    }
+
+    public function toArray()
+    {
+        return $this->group->toArray();
     }
 
 }
