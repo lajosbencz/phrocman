@@ -98,9 +98,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         foreach(self::EVENT_TOPIC_LIST as $event) {
             $group->on($event, function(...$args) use($event) {
                 $this->emit($event, $args);
-                array_shift($args);
-                array_unshift($args, $this);
-                $this->emit($event, $args);
+                if($event=='stdout' || $event == 'stderr') {
+                    array_shift($args);
+                    array_unshift($args, $this);
+                    $this->emit($event, $args);
+                }
             });
         }
         return $this;
