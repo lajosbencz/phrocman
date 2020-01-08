@@ -13,6 +13,6 @@ final class Util
     static function formatSize($size)
     {
         $unit = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'];
-        return @round($size / pow(1024, ($i = floor(log($size, 1024)))), 2) . ' ' . $unit[$i];
+        return sprintf('%0.2f', $size / pow(1024, ($i = floor(log($size, 1024))))) . ' ' . $unit[$i];
     }
 }
