@@ -97,7 +97,10 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         $this->add($this->children, $group, $index);
         foreach(self::EVENT_TOPIC_LIST as $event) {
             $group->on($event, function(...$args) use($event) {
-                $this->emit($event, func_get_args());
+                $this->emit($event, $args);
+                array_shift($args);
+                array_unshift($args, $this);
+                $this->emit($event, $args);
             });
         }
         return $this;
@@ -122,9 +125,11 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         });
         $item->on('stdout', function($what, $data) {
             $this->emit('stdout', [$what, $data]);
+            $this->emit('stdout', [$this, $data]);
         });
         $item->on('stderr', function($what, $data) {
             $this->emit('stderr', [$what, $data]);
+            $this->emit('stderr', [$this, $data]);
         });
         $item->on('fail', function($what, $code) {
             $this->emit('fail', [$what, $code]);
