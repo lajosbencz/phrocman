@@ -247,8 +247,8 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     public function isRunning(): bool
     {
         foreach($this->iterate() as $item) {
-            if($item->isRunning()) {
-                return true;
+            if(!$item->isRunning()) {
+                return false;
             }
         }
         return false;
