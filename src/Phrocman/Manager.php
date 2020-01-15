@@ -37,6 +37,10 @@ class Manager implements EventsAwareInterface
     public function start(): void
     {
         $lastTime = 0;
+        $this->loop->addSignal(SIGINT, function() {
+            $this->stop();
+            $this->loop->stop();
+        });
         $this->loop->addPeriodicTimer(0.05, function () use (&$lastTime) {
             $time = microtime(true);
             $timeSec = floor($time);
