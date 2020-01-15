@@ -251,7 +251,7 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
                 return false;
             }
         }
-        return false;
+        return true;
     }
 
     public function findGroup(string $uid): ?self
