@@ -6,9 +6,11 @@ namespace Phrocman;
 use DateTime;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
+use Psr\Log\NullLogger;
 use React\ChildProcess\Process;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
+use Thruway\Logging\Logger;
 
 class Manager implements EventsAwareInterface
 {
@@ -23,6 +25,9 @@ class Manager implements EventsAwareInterface
 
     public function __construct(Group $group, ?EventsManager $eventsManager=null, ?LoopInterface $loop=null)
     {
+        Logger::set(new NullLogger);
+        $this->group = $group;
+        $this->loop = $loop ?? Factory::create();
         $this->setEventsManager($eventsManager ? : new EventsManager);
         $group->setManager($this);
         foreach(Group::EVENT_TOPIC_LIST as $event) {
@@ -30,8 +35,6 @@ class Manager implements EventsAwareInterface
                 $this->getEventsManager()->emit($event, $args);
             });
         }
-        $this->group = $group;
-        $this->loop = $loop ?? Factory::create();
     }
 
     public function start(): void

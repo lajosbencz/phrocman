@@ -48,37 +48,37 @@ class Timer extends Runnable
             $process = new Process($cmd, $cwd, $env);
             $process->on('exit', function ($code) use($start) {
                 $took = microtime(true) - $start;
-                $this->emit('exit', [$code, $took]);
+                $this->emit('exit', [$this, $code, $took]);
             });
             $process->start($this->getLoop());
             $process->stdout->on('data', function ($data) {
-                $this->emit('stdout', [$data]);
+                $this->emit('stdout', [$this, $data]);
             });
             $process->stderr->on('data', function ($error) {
-                $this->emit('stderr', [$error]);
+                $this->emit('stderr', [$this, $error]);
             });
-            $this->emit('trigger');
+            $this->emit('trigger', [$this]);
         }
     }
 
     public function start(): void
     {
         $this->running = true;
-        $this->emit('start');
+        $this->emit('start', [$this]);
     }
 
     public function stop(): void
     {
         $this->running = false;
-        $this->emit('stop');
+        $this->emit('stop', [$this]);
     }
 
     public function restart(): void
     {
-        if(!$this->running) {
-            $this->running = true;
-            $this->emit('start');
+        if($this->isRunning()) {
+            $this->stop();
         }
+        $this->start();
     }
 
     public function isRunning(): bool

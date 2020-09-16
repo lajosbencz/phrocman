@@ -22,6 +22,9 @@ class Server
         $router->addInternalClient($client);
         $router->start(false);
         $this->wamp = new Middleware(['/ws'], $loop, $router);
+        $manager->getEventsManager()->on('stdout', function(...$args) use($client) {
+            $client->getSession()->publish('stdout', $args);
+        });
     }
 
     public function __invoke(ServerRequestInterface $request, callable $next)

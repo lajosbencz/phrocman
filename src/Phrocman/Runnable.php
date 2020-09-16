@@ -8,7 +8,7 @@ use React\EventLoop\LoopInterface;
 
 abstract class Runnable implements RunnableInterface, UidInterface
 {
-    use UidTrait, EventEmitterTrait;
+    use EventEmitterTrait;
 
     /** @var Group */
     protected $group;
@@ -17,15 +17,26 @@ abstract class Runnable implements RunnableInterface, UidInterface
     protected $cmd = '';
     protected $cwd = '';
     protected $env = [];
+    protected $uid = '';
 
-    public function __construct(Group $group, string $name, string $cmd, string $cwd='', array $env=[])
+    public function __construct(Group $group, string $name, string $cmd, string $cwd = '', array $env = [])
     {
-        $this->generateUid();
         $this->group = $group;
         $this->name = $name;
         $this->cmd = $cmd;
         $this->cwd = $cwd;
         $this->env = $env;
+        $this->generateUid();
+    }
+
+    protected function generateUid(): void
+    {
+        $this->uid = md5(json_encode([get_class($this), $this->getName(), $this->getGroup()->getPath()]));
+    }
+
+    public function getUid(): string
+    {
+        return $this->uid;
     }
 
     public function getGroup()

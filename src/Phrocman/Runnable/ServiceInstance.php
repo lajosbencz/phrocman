@@ -33,6 +33,11 @@ class ServiceInstance extends Runnable
         $this->process = new Process($this->getCmd(), $this->getCwd(), $this->getEnv());
     }
 
+    protected function generateUid(): void
+    {
+        $this->uid = md5(json_encode([get_class($this), $this->getName(), $this->getGroup()->getPath(), $this->getInstance()]));
+    }
+
     public function __construct(Service $service, int $instance)
     {
         $env = array_merge([self::ENV_KEY_INSTANCE => $instance], $service->getEnv());

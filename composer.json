@@ -20,6 +20,9 @@
         "thruway/middleware": "~0.0.2",
         "lajosbencz/cli-args": "~0.1.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^8"
+    },
     "autoload": {
         "psr-4": {
             "Phrocman\\": "src/Phrocman"

@@ -11,7 +11,9 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
 {
     const EVENT_TOPIC_LIST = ['start', 'trigger', 'stdout', 'stderr', 'exit', 'fail', 'stop'];
 
-    use UidTrait, EventEmitterTrait;
+    use EventEmitterTrait;
+
+    protected $uid;
 
     /** @var Manager */
     protected $manager = null;
@@ -43,6 +45,16 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         }
     }
 
+    protected function generateUid(): void
+    {
+        $this->uid = md5(json_encode([get_class($this), $this->getName(), $this->getPath()]));
+    }
+
+    public function getUid(): string
+    {
+        return $this->uid;
+    }
+
     public function __construct(string $name, ?self $parent=null)
     {
         $this->generateUid();
@@ -63,6 +75,17 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         return $this->name;
     }
 
+    public function getPath()
+    {
+        $path = '';
+        $next = $this;
+        do {
+            $path = $next->getName() . '/' . $path;
+            $next = $next->getParent();
+        } while($next);
+        return rtrim($path, '/');
+    }
+
     public function setParent(?self $parent): void
     {
         $this->parent = $parent;
@@ -71,6 +94,15 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     public function getParent(): ?self
     {
         return $this->parent;
+    }
+
+    public function getRoot(): self
+    {
+        $next = $this;
+        while($next->parent) {
+            $next = $next->parent;
+        }
+        return $next;
     }
 
     public function getManager(): Manager
@@ -125,22 +157,20 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
         $item->on('start', function($what) {
             $this->emit('start', [$what]);
         });
-        $item->on('stdout', function($what, $data) {
-            $this->emit('stdout', [$what, $data]);
-            $this->emit('stdout', [$this, $data]);
+        $item->on('stdout', function($what, $data) use($item) {
+            $this->emit('stdout', [$item, $what, $data]);
         });
-        $item->on('stderr', function($what, $data) {
-            $this->emit('stderr', [$what, $data]);
-            $this->emit('stderr', [$this, $data]);
+        $item->on('stderr', function($what, $data) use($item) {
+            $this->emit('stderr', [$item, $what, $data]);
         });
-        $item->on('fail', function($what, $code) {
-            $this->emit('fail', [$what, $code]);
+        $item->on('fail', function($what, $code) use($item) {
+            $this->emit('fail', [$item, $what, $code]);
         });
-        $item->on('exit', function($what, $code) {
-            $this->emit('exit', [$what, $code]);
+        $item->on('exit', function($what, $code) use($item) {
+            $this->emit('exit', [$item, $what, $code]);
         });
-        $item->on('stop', function($what) {
-            $this->emit('stop', [$what]);
+        $item->on('stop', function($what) use($item) {
+            $this->emit('stop', [$item, $what]);
         });
         return $item;
     }
@@ -159,23 +189,23 @@ class Group implements RunnableInterface, UidInterface, EventsAwareInterface
     {
         $item = new Timer($this, $name, $cron, $cmd, $cwd, $env);
         $this->add($this->timers, $item);
-        $item->on('start', function() use($item) {
-            $this->emit('start', [$item]);
+        $item->on('start', function($instance) use($item) {
+            $this->emit('start', [$instance, $item]);
         });
-        $item->on('stdout', function( $data) use($item) {
-            $this->emit('stdout', [$item, $data]);
+        $item->on('stdout', function($instance, $data) use($item) {
+            $this->emit('stdout', [$instance, $item, $data]);
         });
-        $item->on('stderr', function( $data) use($item) {
-            $this->emit('stderr', [$item, $data]);
+        $item->on('stderr', function($instance, $data) use($item) {
+            $this->emit('stderr', [$instance, $item, $data]);
         });
-        $item->on('trigger', function() use($item) {
-            $this->emit('trigger', [$item]);
+        $item->on('trigger', function($instance) use($item) {
+            $this->emit('trigger', [$instance, $item]);
         });
-        $item->on('exit', function($code) use($item) {
-            $this->emit('exit', [$item, $code]);
+        $item->on('exit', function($instance, $code, $took=null) use($item) {
+            $this->emit('exit', [$instance, $item, $code, $took]);
         });
-        $item->on('stop', function() use($item) {
-            $this->emit('stop', [$item]);
+        $item->on('stop', function($instance) use($item) {
+            $this->emit('stop', [$instance, $item]);
         });
         return $item;
     }
